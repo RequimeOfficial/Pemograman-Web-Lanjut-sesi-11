@@ -1,0 +1,952 @@
+{
+    "openapi": "3.0.0",
+    "info": {
+        "title": "Perpustakaan API",
+        "description": "REST API Laravel 12 untuk autentikasi berbasis token (Laravel Sanctum) dan CRUD data buku.",
+        "contact": {
+            "name": "Admin Perpustakaan",
+            "email": "admin@example.com"
+        },
+        "version": "1.0.0"
+    },
+    "servers": [
+        {
+            "url": "http://localhost:8000",
+            "description": "Server API"
+        }
+    ],
+    "paths": {
+        "/api/register": {
+            "post": {
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Registrasi akun baru",
+                "description": "Membuat akun dan langsung mengembalikan token Bearer.",
+                "operationId": "authRegister",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/RegisterRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Registrasi berhasil",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/AuthResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validasi gagal (mis. email sudah terdaftar)",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/login": {
+            "post": {
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Login dan dapatkan token",
+                "description": "Dibatasi maksimal 6 percobaan per menit (throttle:6,1).",
+                "operationId": "authLogin",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/LoginRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Login berhasil",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/AuthResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Email atau password salah",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ValidationError"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "Terlalu banyak percobaan login",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/MessageResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/me": {
+            "get": {
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Profil user yang sedang login",
+                "operationId": "authMe",
+                "responses": {
+                    "200": {
+                        "description": "Data user",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/User"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Belum login / token tidak valid",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/MessageResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/logout": {
+            "post": {
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Logout (hapus token yang sedang dipakai)",
+                "operationId": "authLogout",
+                "responses": {
+                    "200": {
+                        "description": "Logout berhasil",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/MessageResponse"
+                                },
+                                "example": {
+                                    "message": "Logout berhasil"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Belum login / token tidak valid",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/MessageResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/books": {
+            "get": {
+                "tags": [
+                    "Books"
+                ],
+                "summary": "Daftar buku (paginasi + pencarian)",
+                "operationId": "booksIndex",
+                "parameters": [
+                    {
+                        "name": "search",
+                        "in": "query",
+                        "description": "Cari berdasarkan judul atau penulis",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "example": "hirata"
+                        }
+                    },
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "description": "Jumlah data per halaman (1–100)",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 10,
+                            "maximum": 100,
+                            "minimum": 1
+                        }
+                    },
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 1
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Daftar buku",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/BookCollection"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Belum login",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/MessageResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "Books"
+                ],
+                "summary": "Tambah buku baru",
+                "operationId": "booksStore",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/BookRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Buku berhasil dibuat",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/Book"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Belum login",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/MessageResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validasi gagal (mis. ISBN sudah dipakai)",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ValidationError"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/books/{book}": {
+            "get": {
+                "tags": [
+                    "Books"
+                ],
+                "summary": "Detail buku",
+                "operationId": "booksShow",
+                "parameters": [
+                    {
+                        "name": "book",
+                        "in": "path",
+                        "description": "ID buku",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Detail buku",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/Book"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Belum login",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/MessageResponse"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Buku tidak ditemukan",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/MessageResponse"
+                                },
+                                "example": {
+                                    "message": "Data tidak ditemukan."
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            },
+            "put": {
+                "tags": [
+                    "Books"
+                ],
+                "summary": "Ubah buku",
+                "description": "Field yang tidak dikirim tidak diubah.",
+                "operationId": "booksUpdate",
+                "parameters": [
+                    {
+                        "name": "book",
+                        "in": "path",
+                        "description": "ID buku",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/BookUpdateRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Buku berhasil diubah",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/Book"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Belum login",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/MessageResponse"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Buku tidak ditemukan",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/MessageResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validasi gagal",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ValidationError"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            },
+            "delete": {
+                "tags": [
+                    "Books"
+                ],
+                "summary": "Hapus buku",
+                "operationId": "booksDestroy",
+                "parameters": [
+                    {
+                        "name": "book",
+                        "in": "path",
+                        "description": "ID buku",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Buku berhasil dihapus",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/MessageResponse"
+                                },
+                                "example": {
+                                    "message": "Buku berhasil dihapus"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Belum login",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/MessageResponse"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Buku tidak ditemukan",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/MessageResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            },
+            "patch": {
+                "tags": [
+                    "Books"
+                ],
+                "summary": "Ubah sebagian field buku",
+                "operationId": "booksPatch",
+                "parameters": [
+                    {
+                        "name": "book",
+                        "in": "path",
+                        "description": "ID buku",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/BookUpdateRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Buku berhasil diubah",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/Book"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Belum login",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/MessageResponse"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Buku tidak ditemukan",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/MessageResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validasi gagal",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ValidationError"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        }
+    },
+    "components": {
+        "schemas": {
+            "ValidationError": {
+                "properties": {
+                    "message": {
+                        "description": "Informasi global dokumentasi OpenAPI: judul, server, skema keamanan Bearer, tag,\ndan schema umum yang dipakai banyak endpoint.",
+                        "type": "string",
+                        "example": "The title field is required."
+                    },
+                    "errors": {
+                        "type": "object",
+                        "example": {
+                            "title": [
+                                "The title field is required."
+                            ]
+                        }
+                    }
+                },
+                "type": "object"
+            },
+            "MessageResponse": {
+                "properties": {
+                    "message": {
+                        "type": "string",
+                        "example": "Unauthenticated."
+                    }
+                },
+                "type": "object"
+            },
+            "LoginRequest": {
+                "required": [
+                    "email",
+                    "password"
+                ],
+                "properties": {
+                    "email": {
+                        "type": "string",
+                        "format": "email",
+                        "example": "admin@example.com"
+                    },
+                    "password": {
+                        "type": "string",
+                        "format": "password",
+                        "example": "password"
+                    },
+                    "device_name": {
+                        "description": "Nama perangkat, dipakai sebagai nama token",
+                        "type": "string",
+                        "example": "swagger-ui",
+                        "nullable": true,
+                        "maxLength": 100
+                    }
+                },
+                "type": "object"
+            },
+            "RegisterRequest": {
+                "required": [
+                    "name",
+                    "email",
+                    "password",
+                    "password_confirmation"
+                ],
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "example": "Budi Santoso",
+                        "maxLength": 100
+                    },
+                    "email": {
+                        "type": "string",
+                        "format": "email",
+                        "example": "budi@example.com"
+                    },
+                    "password": {
+                        "type": "string",
+                        "format": "password",
+                        "example": "rahasia123",
+                        "minLength": 8
+                    },
+                    "password_confirmation": {
+                        "type": "string",
+                        "format": "password",
+                        "example": "rahasia123"
+                    }
+                },
+                "type": "object"
+            },
+            "BookRequest": {
+                "required": [
+                    "title",
+                    "author",
+                    "isbn",
+                    "published_year",
+                    "stock"
+                ],
+                "properties": {
+                    "title": {
+                        "type": "string",
+                        "example": "Laskar Pelangi",
+                        "maxLength": 255
+                    },
+                    "author": {
+                        "type": "string",
+                        "example": "Andrea Hirata",
+                        "maxLength": 255
+                    },
+                    "publisher": {
+                        "type": "string",
+                        "example": "Bentang Pustaka",
+                        "nullable": true
+                    },
+                    "isbn": {
+                        "type": "string",
+                        "example": "9786020000011",
+                        "maxLength": 20
+                    },
+                    "published_year": {
+                        "type": "integer",
+                        "example": 2005,
+                        "minimum": 1000
+                    },
+                    "stock": {
+                        "type": "integer",
+                        "example": 10,
+                        "minimum": 0
+                    },
+                    "description": {
+                        "type": "string",
+                        "example": "Novel tentang anak-anak Belitung.",
+                        "nullable": true
+                    }
+                },
+                "type": "object"
+            },
+            "BookUpdateRequest": {
+                "description": "Semua field opsional; kirim hanya field yang ingin diubah.",
+                "properties": {
+                    "title": {
+                        "description": "Semua field memakai 'sometimes' sehingga PATCH boleh mengirim sebagian field saja.",
+                        "type": "string",
+                        "example": "Laskar Pelangi (Edisi Revisi)",
+                        "maxLength": 255
+                    },
+                    "author": {
+                        "type": "string",
+                        "example": "Andrea Hirata",
+                        "maxLength": 255
+                    },
+                    "publisher": {
+                        "type": "string",
+                        "example": "Bentang Pustaka",
+                        "nullable": true
+                    },
+                    "isbn": {
+                        "type": "string",
+                        "example": "9786020000011",
+                        "maxLength": 20
+                    },
+                    "published_year": {
+                        "type": "integer",
+                        "example": 2008,
+                        "minimum": 1000
+                    },
+                    "stock": {
+                        "type": "integer",
+                        "example": 15,
+                        "minimum": 0
+                    },
+                    "description": {
+                        "type": "string",
+                        "example": "Edisi revisi dengan sampul baru.",
+                        "nullable": true
+                    }
+                },
+                "type": "object"
+            },
+            "Book": {
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "example": 1
+                    },
+                    "title": {
+                        "type": "string",
+                        "example": "Laskar Pelangi"
+                    },
+                    "author": {
+                        "type": "string",
+                        "example": "Andrea Hirata"
+                    },
+                    "publisher": {
+                        "type": "string",
+                        "example": "Bentang Pustaka",
+                        "nullable": true
+                    },
+                    "isbn": {
+                        "type": "string",
+                        "example": "9789793062792"
+                    },
+                    "published_year": {
+                        "type": "integer",
+                        "example": 2005
+                    },
+                    "stock": {
+                        "type": "integer",
+                        "example": 10
+                    },
+                    "description": {
+                        "type": "string",
+                        "example": "Novel tentang anak-anak Belitung.",
+                        "nullable": true
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "updated_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                },
+                "type": "object"
+            },
+            "BookCollection": {
+                "properties": {
+                    "data": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/Book"
+                        }
+                    },
+                    "links": {
+                        "properties": {
+                            "first": {
+                                "type": "string",
+                                "example": "http://localhost:8000/api/books?page=1"
+                            },
+                            "last": {
+                                "type": "string",
+                                "example": "http://localhost:8000/api/books?page=2"
+                            },
+                            "prev": {
+                                "type": "string",
+                                "example": null,
+                                "nullable": true
+                            },
+                            "next": {
+                                "type": "string",
+                                "example": "http://localhost:8000/api/books?page=2",
+                                "nullable": true
+                            }
+                        },
+                        "type": "object"
+                    },
+                    "meta": {
+                        "properties": {
+                            "current_page": {
+                                "type": "integer",
+                                "example": 1
+                            },
+                            "last_page": {
+                                "type": "integer",
+                                "example": 2
+                            },
+                            "per_page": {
+                                "type": "integer",
+                                "example": 10
+                            },
+                            "total": {
+                                "type": "integer",
+                                "example": 20
+                            }
+                        },
+                        "type": "object"
+                    }
+                },
+                "type": "object"
+            },
+            "User": {
+                "properties": {
+                    "id": {
+                        "description": "Menentukan field user yang boleh keluar di JSON (password & remember_token tidak ikut).",
+                        "type": "integer",
+                        "example": 1
+                    },
+                    "name": {
+                        "type": "string",
+                        "example": "Admin Perpustakaan"
+                    },
+                    "email": {
+                        "type": "string",
+                        "format": "email",
+                        "example": "admin@example.com"
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "example": "2026-11-10T08:00:00.000000Z"
+                    }
+                },
+                "type": "object"
+            },
+            "AuthResponse": {
+                "properties": {
+                    "message": {
+                        "type": "string",
+                        "example": "Login berhasil"
+                    },
+                    "token": {
+                        "type": "string",
+                        "example": "1|Xz9aBcDeFgHiJkLmNoPq..."
+                    },
+                    "token_type": {
+                        "type": "string",
+                        "example": "Bearer"
+                    },
+                    "user": {
+                        "$ref": "#/components/schemas/User"
+                    }
+                },
+                "type": "object"
+            }
+        },
+        "securitySchemes": {
+            "sanctum": {
+                "type": "http",
+                "description": "Tempel token dari endpoint POST /api/login (tanpa kata \"Bearer\").",
+                "bearerFormat": "Sanctum Token",
+                "scheme": "bearer"
+            }
+        }
+    },
+    "tags": [
+        {
+            "name": "Auth",
+            "description": "Registrasi, login, profil, dan logout"
+        },
+        {
+            "name": "Books",
+            "description": "CRUD data buku (wajib login)"
+        }
+    ]
+}
