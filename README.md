@@ -38,7 +38,7 @@ bisa diimpor ke Postman).
 ## Instalasi
 
 ```bash
-git clone https://github.com/RequimeOfficial/<repo-ini>.git perpus-api
+git clone https://github.com/RequimeOfficial/Pemograman-Web-Lanjut-sesi-11.git perpus-api
 cd perpus-api
 composer install
 cp .env.example .env
